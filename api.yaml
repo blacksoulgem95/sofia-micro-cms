@@ -1,0 +1,673 @@
+openapi: 3.0.3
+info:
+  title: Sofia Micro CMS API
+  description: API specification for Sofia Micro CMS including authentication, 2FA, content management and public content.
+  version: 1.0.0
+servers:
+  - url: / # Base path
+tags:
+  - name: auth
+    description: Authentication related endpoints such as login, logout, registration and 2FA
+  - name: mgmt
+    description: Management related endpoints for administration and configuration
+  - name: public
+    description: Public endpoints accessible without authentication
+paths:
+  /auth/login:
+    post:
+      tags:
+        - auth
+      operationId: loginUser
+      summary: User login with optional 2FA
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - username
+                - password
+              properties:
+                username:
+                  type: string
+                password:
+                  type: string
+                two_fa_code:
+                  type: string
+                  description: Optional 6-digit 2FA code if enabled
+      responses:
+        "200":
+          description: JWT token returned
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+        "401":
+          description: Unauthorized - invalid credentials or 2FA needed/failure
+
+  /auth/register:
+    post:
+      tags:
+        - auth
+      operationId: registerUser
+      summary: Register a new user (if registration is enabled)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - username
+                - password
+                - password_confirm
+              properties:
+                username:
+                  type: string
+                password:
+                  type: string
+                password_confirm:
+                  type: string
+                  description: Confirm password to avoid typos
+      responses:
+        "201":
+          description: User registered successfully
+        "400":
+          description: Invalid input, missing username or password or confirmation mismatch
+        "403":
+          description: Registration is disabled
+        "409":
+          description: Username already taken
+        "500":
+          description: Server error during registration
+
+  /auth/logout:
+    post:
+      tags:
+        - auth
+      operationId: logoutUser
+      summary: User logout by invalidating the JWT token
+      security:
+        - bearerAuth: []
+      responses:
+        "204":
+          description: Logout successful with no content
+        "401":
+          description: Unauthorized - invalid or missing token
+  /auth/register-2fa:
+    post:
+      tags:
+        - auth
+      operationId: register2FA
+      summary: Register 2FA for a user and return 2FA secret
+
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - user_id
+              properties:
+                user_id:
+                  type: integer
+      responses:
+        "200":
+          description: 2FA secret generated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  secret:
+                    type: string
+                    description: Base32 encoded 2FA secret to configure 2FA apps
+        "400":
+          description: Missing or invalid user ID
+  /auth/send-2fa-code:
+    post:
+      tags:
+        - auth
+      operationId: send2FACode
+      summary: Send current TOTP 2FA code to user's email
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - user_id
+              properties:
+                user_id:
+                  type: integer
+      responses:
+        "200":
+          description: Email sent successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+        "400":
+          description: User not found or 2FA secret missing
+        "500":
+          description: Failed to send email
+  /auth/verify-2fa:
+    post:
+      tags:
+        - auth
+      operationId: verify2FACode
+      summary: Verify a 2FA code after login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - user_id
+                - two_fa_code
+              properties:
+                user_id:
+                  type: integer
+                two_fa_code:
+                  type: string
+                  description: 6-digit TOTP code
+      responses:
+        "200":
+          description: 2FA code verified successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+        "400":
+          description: Missing data or user not found
+        "401":
+          description: Invalid 2FA code
+  /public/posts:
+    get:
+      tags:
+        - public
+      operationId: getPublicPosts
+      summary: Get paginated blog posts for public viewing
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+          description: Page number
+      responses:
+        "200":
+          description: List of blog posts with categories
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id:
+                      type: integer
+                    title:
+                      type: string
+                    content:
+                      type: string
+                    created_at:
+                      type: string
+                      format: date-time
+                    category:
+                      type: string
+  /public/categories:
+    get:
+      tags:
+        - public
+      operationId: getPublicCategories
+      summary: Get categories list
+      responses:
+        "200":
+          description: List of categories
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id:
+                      type: integer
+                    name:
+                      type: string
+  /public/testimonials:
+    get:
+      tags:
+        - public
+      operationId: getPublicTestimonials
+      summary: Get testimonials list
+      responses:
+        "200":
+          description: List of testimonials
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id:
+                      type: integer
+                    author:
+                      type: string
+                    content:
+                      type: string
+                    company:
+                      type: string
+                    role:
+                      type: string
+  /public/clients:
+    get:
+      tags:
+        - public
+      operationId: getPublicClients
+      summary: Get clients list
+      responses:
+        "200":
+          description: List of clients
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id:
+                      type: integer
+                    name:
+                      type: string
+                    url:
+                      type: string
+  /public/portfolio:
+    get:
+      tags:
+        - public
+      operationId: getPublicPortfolio
+      summary: Get portfolio items list
+      responses:
+        "200":
+          description: List of portfolio projects with clients
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id:
+                      type: integer
+                    title:
+                      type: string
+                    description:
+                      type: string
+                    url:
+                      type: string
+                    client_id:
+                      type: integer
+                    created_at:
+                      type: string
+                      format: date-time
+  /public/images:
+    get:
+      tags:
+        - public
+      operationId: getPublicImages
+      summary: Get images list
+      responses:
+        "200":
+          description: List of images
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id:
+                      type: integer
+                    filename:
+                      type: string
+  /mgmt/posts:
+    get:
+      tags:
+        - mgmt
+      operationId: getMgmtPosts
+      summary: Get paginated list of posts for management
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+          description: Page number
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: List of posts with categories
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id:
+                      type: integer
+                    category:
+                      type: string
+                    title:
+                      type: string
+                    content:
+                      type: string
+                    created_at:
+                      type: string
+                      format: date-time
+    post:
+      tags:
+        - mgmt
+      operationId: createMgmtPost
+      summary: Create a new post
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - title
+                - content
+              properties:
+                title:
+                  type: string
+                content:
+                  type: string
+                category_id:
+                  type: integer
+      responses:
+        "201":
+          description: Created
+  /mgmt/categories:
+    get:
+      tags:
+        - mgmt
+      operationId: getMgmtCategories
+      summary: Get categories list for management
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: List of categories
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id:
+                      type: integer
+                    name:
+                      type: string
+    post:
+      tags:
+        - mgmt
+      operationId: createMgmtCategory
+      summary: Create a category
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+              properties:
+                name:
+                  type: string
+      responses:
+        "201":
+          description: Created
+  /mgmt/testimonials:
+    get:
+      tags:
+        - mgmt
+      operationId: getMgmtTestimonials
+      summary: Get testimonials list for management
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+          description: Page number
+      responses:
+        "200":
+          description: List of testimonials
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    author:
+                      type: string
+                    content:
+                      type: string
+                    company:
+                      type: string
+                    role:
+                      type: string
+                      nullable: true
+    post:
+      tags:
+        - mgmt
+      operationId: createMgmtTestimonial
+      summary: Create a testimonial
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - author
+                - content
+              properties:
+                author:
+                  type: string
+                content:
+                  type: string
+                company:
+                  type: string
+                role:
+                  type: string
+    responses:
+      "201":
+        description: Created
+  /mgmt/portfolio:
+    get:
+      tags:
+        - mgmt
+      summary: Get portfolio projects list for management
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+          description: Page number
+      responses:
+        "200":
+          description: List of portfolio projects
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id:
+                      type: integer
+                    title:
+                      type: string
+                    description:
+                      type: string
+                    url:
+                      type: string
+                    client:
+                      type: string
+    post:
+      tags:
+        - mgmt
+      summary: Create a portfolio project
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - title
+                - description
+                - url
+              properties:
+                title:
+                  type: string
+                description:
+                  type: string
+                url:
+                  type: string
+                client_id:
+                  type: integer
+      responses:
+        "201":
+          description: Created
+  /mgmt/clients:
+    get:
+      tags:
+        - mgmt
+      summary: Get clients list for management
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: List of clients
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id:
+                      type: integer
+                    name:
+                      type: string
+                    url:
+                      type: string
+    post:
+      tags:
+        - mgmt
+      summary: Create a client
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+              properties:
+                name:
+                  type: string
+      responses:
+        "201":
+          description: Created
+  /mgmt/images:
+    post:
+      tags:
+        - mgmt
+      summary: Upload an image
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                image:
+                  type: string
+                  format: binary
+      responses:
+        "200":
+          description: Image uploaded
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  filename:
+                    type: string
+    get:
+      tags:
+        - mgmt
+      summary: Get images list for management
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: List of images
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id:
+                      type: integer
+                    filename:
+                      type: string
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

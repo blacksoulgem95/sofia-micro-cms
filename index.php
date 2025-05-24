@@ -33,34 +33,58 @@ $app->add(function (Request $request, $handler) {
     return $handler->handle($request);
 });
 
-// Login route
-$app->post("/login", "login");
+//
+// Auth routes
+//
+use function functions\handleRegister2FA;
+use function functions\handleSend2FACode;
 
-// Rotte protette da autenticazione
-$app->group("", function ($group) {
+$app->group('/auth', function ($group) {
+    $group->post('/login', 'login');
+    $group->post('/register-2fa', 'handleRegister2FA');
+    $group->post('/send-2fa-code', 'handleSend2FACode');
+    $group->post('/verify-2fa', 'handleVerify2FA');
+});
+
+//
+// Public routes
+//
+$app->group('/public', function ($group) {
+    $group->get('/posts', 'getPublicPosts');
+    $group->get('/categories', 'getPublicCategories');
+    $group->get('/testimonials', 'getPublicTestimonials');
+    $group->get('/clients', 'getPublicClients');
+    $group->get('/portfolio', 'getPublicPortfolio');
+    $group->get('/images', 'getPublicImages');
+});
+
+//
+// Management routes with auth required
+//
+$app->group('/mgmt', function ($group) {
     // Posts
-    $group->get("/posts", "getPosts");
-    $group->post("/posts", "createPost");
+    $group->get('/posts', 'getPosts');
+    $group->post('/posts', 'createPost');
 
     // Categories
-    $group->get("/categories", "getCategories");
-    $group->post("/categories", "createCategory");
+    $group->get('/categories', 'getCategories');
+    $group->post('/categories', 'createCategory');
 
     // Testimonials
-    $group->get("/testimonials", "getTestimonials");
-    $group->post("/testimonials", "createTestimonial");
+    $group->get('/testimonials', 'getTestimonials');
+    $group->post('/testimonials', 'createTestimonial');
 
     // Portfolio
-    $group->get("/portfolio", "getPortfolio");
-    $group->post("/portfolio", "createPortfolio");
+    $group->get('/portfolio', 'getPortfolio');
+    $group->post('/portfolio', 'createPortfolio');
 
     // Clients
-    $group->get("/clients", "getClients");
-    $group->post("/clients", "createClient");
+    $group->get('/clients', 'getClients');
+    $group->post('/clients', 'createClient');
 
     // Image Upload
-    $group->post("/upload", "uploadImage");
-    $group->get("/images", "getImages");
-})->add("authMiddleware");
+    $group->post('/upload', 'uploadImage');
+    $group->get('/images', 'getImages');
+})->add('authMiddleware');
 
 $app->run();
